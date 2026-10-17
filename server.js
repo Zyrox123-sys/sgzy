@@ -76,16 +76,16 @@ function getOrCreateUser(deviceId) {
 
 const sharedData = {
   CustomPartySettings: {}, FriendsListSettings: {}, RewardPacks: [],
-  BattlePass: {}, BattlePasses: [], Currencies: [], PurchasableItems: [],
+  BattlePass: {}, BattlePasses: [], Currencies: {}, PurchasableItems: [],
   AdSettings: {}, ShopDef: {}, MatchmakingPools: [], Levels: [], Skins_v4: [],
   Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
-  RoundRewards: [], GeneralSettings: {}, InGameNotifications: [], Versions: {},
+  RoundRewards: [], GeneralSettings: {}, InGameNotifications: {}, Versions: {},
   SupportSettings: {}, PhotonSettings: {}, UseFirebase: false, DisableAdmob: true,
   DisableAds: true, BackendUrl: '', SharedType: '', AnalyticsSettings: {},
   _SharedVersion: 1, PusherSettings: {}, GameEvents: [],
   GameEventProgressions: [], GameEventXPTypes: [], GameEventsLeaderboardRewards: [],
   Missions: [], MissionRequirementTypes: [], MissionObjectives: [],
-  LocalNotifications: [], EndOfMatchReward: {}, Shards: [], Themes: []
+  LocalNotifications: {}, EndOfMatchReward: {}, Shards: {}, Themes: {}
 };
 
 async function handle(req, res) {
@@ -137,7 +137,13 @@ async function handle(req, res) {
 
   const shared = path.match(/^\/shared\/([^/]+)\/([^/]+)$/i);
   if (method === 'GET' && shared) {
-    return sendJson(res, 200, { ...sharedData, _SharedVersion: shared[1], SharedType: shared[2] });
+    const requestedVersion = Number.parseInt(shared[1], 10);
+    return sendJson(res, 200, {
+      ...sharedData,
+      BackendUrl: 'https://sgzy-production.up.railway.app',
+      _SharedVersion: Number.isFinite(requestedVersion) ? requestedVersion : 1,
+      SharedType: shared[2]
+    });
   }
 
   if (path.startsWith('/user/') || path.startsWith('/round/') || path.startsWith('/api/v1/')) {
