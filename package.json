@@ -1,0 +1,12 @@
+{
+  "name": "stumblezyx-railway-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Railway-ready backend foundation for StumbleZyx",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
