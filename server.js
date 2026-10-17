@@ -1,7 +1,7 @@
 'use strict';
 
 const http = require('node:http');
-const { createHash } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
@@ -45,6 +45,25 @@ function readJson(req) {
 
 function hashId(value) {
   return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
+}
+
+function findDeviceId(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findDeviceId(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (/^device[-_]?id$/i.test(key) && typeof item === 'string' && item.length > 0) return item;
+  }
+  for (const item of Object.values(value)) {
+    const found = findDeviceId(item);
+    if (found) return found;
+  }
+  return null;
 }
 
 function getOrCreateUser(deviceId) {
@@ -107,11 +126,17 @@ async function handle(req, res) {
   }
 
   if (method === 'POST' && path === '/user/login') {
-    const body = await readJson(req);
-    const deviceId = body.DeviceId || body.deviceId || body.device_id;
-    if (typeof deviceId !== 'string' || deviceId.length < 1 || deviceId.length > 256) {
-      return sendJson(res, 400, { error: 'device_id_required' });
+    let body = {};
+    try { body = await readJson(req); }
+    catch (error) {
+      if (error.status === 413) throw error;
+      // Some 0.56 client builds send a wrapped or non-JSON guest payload.
+      // Keep login guest-only and continue with a fresh anonymous ID.
     }
+    const suppliedDeviceId = findDeviceId(body);
+    const deviceId = suppliedDeviceId && suppliedDeviceId.length <= 256
+      ? suppliedDeviceId
+      : `guest-${randomUUID()}`;
     const user = getOrCreateUser(deviceId);
     return sendJson(res, 200, {
       User: user,
