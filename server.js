@@ -7,7 +7,6 @@ const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
 const MAX_BODY_BYTES = 1024 * 1024;
 const accounts = new Map();
-const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 function sendJson(res, status, body, extraHeaders = {}) {
   const payload = JSON.stringify(body);
@@ -68,29 +67,31 @@ function findDeviceId(value) {
 }
 
 function getOrCreateUser(deviceId) {
-  const id = hashId(deviceId);
-  if (!accounts.has(id)) {
-    const created = nowSeconds();
-    accounts.set(id, {
+  const accountKey = hashId(deviceId);
+  // Stumble Guys 0.56 deserializes User.Id as Int32, not a string.
+  const id = Number.parseInt(accountKey.slice(0, 7), 16) || 1;
+  if (!accounts.has(accountKey)) {
+    const created = new Date().toISOString();
+    accounts.set(accountKey, {
       Id: id,
-      StumbleId: id,
+      StumbleId: accountKey,
       DeviceId: String(deviceId).slice(0, 128),
-      Username: `Player${id.slice(0, 6)}`,
-      Country: '', Region: '', Token: '', Version: '0.56', VersionResult: 0,
+      Username: `Player${String(id).slice(-6)}`,
+      Country: '', Region: '', Token: '', Version: '0.56', VersionResult: '',
       Friends: [], Skins: [], SkinVariants: [], Rewards: [], Balances: [],
       Created: created, LastLogin: created, SkillRating: 0, Crowns: 0,
       HiddenRating: 0, Experience: 0, NewsVersion: 0,
       AvailableNewsVersion: 0, LatestNewsIdBackend: 0,
       Emotes: [], Animations: [], Footsteps: [], HasBattlePass: false,
       PassTokens: 0, FreePassRewards: [], PremiumPassRewards: [],
-      KidFriendlyMode: true, Age: 0, TermsOfServiceAccepted: false,
+      KidFriendlyMode: 1, Age: 0, TermsOfServiceAccepted: false,
       FeaturesEnabled: [], BattlePass: null, SecondsSinceCreated: 0,
       RewardID: '', PhotonJwt: '', NativeId: '', PlatformType: 0,
-      Inventory: [], InventoryShards: []
+      Inventory: [], InventoryShards: {}
     });
   }
-  const user = accounts.get(id);
-  user.LastLogin = nowSeconds();
+  const user = accounts.get(accountKey);
+  user.LastLogin = new Date().toISOString();
   return user;
 }
 
@@ -106,6 +107,13 @@ const sharedData = {
   GameEventProgressions: [], GameEventXPTypes: [], GameEventsLeaderboardRewards: [],
   Missions: [], MissionRequirementTypes: [], MissionObjectives: [],
   LocalNotifications: {}, EndOfMatchReward: {}, Shards: {}, Themes: {}
+};
+
+sharedData.Shards = {
+  DuplicateBank: [],
+  RarityCost: {},
+  ShardsSources: {},
+  ShardsToDuplicateBankXp: {}
 };
 
 async function handle(req, res) {
@@ -161,7 +169,7 @@ async function handle(req, res) {
 
   const profile = path.match(/^\/user\/profile\/([^/]+)$/i);
   if (method === 'GET' && profile) {
-    const user = accounts.get(profile[1]);
+    const user = [...accounts.values()].find((entry) => String(entry.Id) === profile[1] || entry.StumbleId === profile[1]);
     if (!user) return sendJson(res, 404, { error: 'profile_not_found' });
     return sendJson(res, 200, user);
   }
