@@ -9,13 +9,14 @@ const MAX_BODY_BYTES = 1024 * 1024;
 const accounts = new Map();
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
-function sendJson(res, status, body) {
+function sendJson(res, status, body, extraHeaders = {}) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'content-length': Buffer.byteLength(payload),
     'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff'
+    'x-content-type-options': 'nosniff',
+    ...extraHeaders
   });
   res.end(payload);
 }
@@ -100,7 +101,7 @@ const sharedData = {
   Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
   RoundRewards: [], GeneralSettings: {}, InGameNotifications: {}, Versions: {},
   SupportSettings: {}, PhotonSettings: {}, UseFirebase: false, DisableAdmob: true,
-  DisableAds: true, BackendUrl: '', SharedType: '', AnalyticsSettings: {},
+  DisableAds: true, BackendUrl: 'https://sgzy-production.up.railway.app', SharedType: '', AnalyticsSettings: {},
   _SharedVersion: 1, PusherSettings: {}, GameEvents: [],
   GameEventProgressions: [], GameEventXPTypes: [], GameEventsLeaderboardRewards: [],
   Missions: [], MissionRequirementTypes: [], MissionObjectives: [],
@@ -115,7 +116,7 @@ async function handle(req, res) {
   if (method === 'GET' && (path === '/' || path === '/health')) {
     return sendJson(res, 200, {
       service: 'StumbleZyx backend', status: 'online', apiReadiness: 'partial',
-      implementedRoutes: ['POST /user/login', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
+      implementedRoutes: ['POST /user/login', 'GET /user/config', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
       multiplayerReady: false,
       note: 'Prototype guest backend; data is in memory and resets on restart.'
     });
@@ -123,6 +124,18 @@ async function handle(req, res) {
 
   if (method === 'GET' && path === '/api/v1/ping') {
     return sendJson(res, 200, { success: true, status: 'online' });
+  }
+
+  if (method === 'GET' && path === '/user/config') {
+    // The 0.56 client deserializes this response directly as SharedData.
+    const config = {
+      ...sharedData,
+      BackendUrl: 'https://sgzy-production.up.railway.app',
+      SharedType: 'user',
+      _SharedVersion: 1
+    };
+    const etag = `"${createHash('sha256').update(JSON.stringify(config)).digest('hex').slice(0, 24)}"`;
+    return sendJson(res, 200, config, { etag });
   }
 
   if (method === 'POST' && path === '/user/login') {
