@@ -1,9 +1,13 @@
 'use strict';
 
 const http = require('node:http');
+const { createHash } = require('node:crypto');
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
+const MAX_BODY_BYTES = 1024 * 1024;
+const accounts = new Map();
+const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
@@ -16,30 +20,144 @@ function sendJson(res, status, body) {
   res.end(payload);
 }
 
-const server = http.createServer((req, res) => {
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    let size = 0;
+    req.setEncoding('utf8');
+    req.on('data', (chunk) => {
+      size += Buffer.byteLength(chunk);
+      if (size > MAX_BODY_BYTES) {
+        reject(Object.assign(new Error('Request body too large'), { status: 413 }));
+        req.destroy();
+        return;
+      }
+      raw += chunk;
+    });
+    req.on('end', () => {
+      if (!raw) return resolve({});
+      try { resolve(JSON.parse(raw)); }
+      catch { reject(Object.assign(new Error('Invalid JSON body'), { status: 400 })); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function hashId(value) {
+  return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
+}
+
+function getOrCreateUser(deviceId) {
+  const id = hashId(deviceId);
+  if (!accounts.has(id)) {
+    const created = nowSeconds();
+    accounts.set(id, {
+      Id: id,
+      StumbleId: id,
+      DeviceId: String(deviceId).slice(0, 128),
+      Username: `Player${id.slice(0, 6)}`,
+      Country: '', Region: '', Token: '', Version: '0.56', VersionResult: 0,
+      Friends: [], Skins: [], SkinVariants: [], Rewards: [], Balances: [],
+      Created: created, LastLogin: created, SkillRating: 0, Crowns: 0,
+      HiddenRating: 0, Experience: 0, NewsVersion: 0,
+      AvailableNewsVersion: 0, LatestNewsIdBackend: 0,
+      Emotes: [], Animations: [], Footsteps: [], HasBattlePass: false,
+      PassTokens: 0, FreePassRewards: [], PremiumPassRewards: [],
+      KidFriendlyMode: true, Age: 0, TermsOfServiceAccepted: false,
+      FeaturesEnabled: [], BattlePass: null, SecondsSinceCreated: 0,
+      RewardID: '', PhotonJwt: '', NativeId: '', PlatformType: 0,
+      Inventory: [], InventoryShards: []
+    });
+  }
+  const user = accounts.get(id);
+  user.LastLogin = nowSeconds();
+  return user;
+}
+
+const sharedData = {
+  CustomPartySettings: {}, FriendsListSettings: {}, RewardPacks: [],
+  BattlePass: {}, BattlePasses: [], Currencies: [], PurchasableItems: [],
+  AdSettings: {}, ShopDef: {}, MatchmakingPools: [], Levels: [], Skins_v4: [],
+  Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
+  RoundRewards: [], GeneralSettings: {}, InGameNotifications: [], Versions: {},
+  SupportSettings: {}, PhotonSettings: {}, UseFirebase: false, DisableAdmob: true,
+  DisableAds: true, BackendUrl: '', SharedType: '', AnalyticsSettings: {},
+  _SharedVersion: 1, PusherSettings: {}, GameEvents: [],
+  GameEventProgressions: [], GameEventXPTypes: [], GameEventsLeaderboardRewards: [],
+  Missions: [], MissionRequirementTypes: [], MissionObjectives: [],
+  LocalNotifications: [], EndOfMatchReward: {}, Shards: [], Themes: []
+};
+
+async function handle(req, res) {
   const url = new URL(req.url || '/', 'http://localhost');
+  const path = decodeURIComponent(url.pathname).replace(/\/+$/, '') || '/';
+  const method = req.method || 'GET';
 
-  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/health')) {
+  if (method === 'GET' && (path === '/' || path === '/health')) {
     return sendJson(res, 200, {
-      service: 'StumbleZyx backend',
-      status: 'online',
-      apiReady: false,
-      note: 'Backend game endpoints have not been implemented yet.'
+      service: 'StumbleZyx backend', status: 'online', apiReadiness: 'partial',
+      implementedRoutes: ['POST /user/login', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
+      multiplayerReady: false,
+      note: 'Prototype guest backend; data is in memory and resets on restart.'
     });
   }
 
-  if (url.pathname === '/auth' || url.pathname === '/shared') {
+  if (method === 'GET' && path === '/api/v1/ping') {
+    return sendJson(res, 200, { success: true, status: 'online' });
+  }
+
+  if (method === 'POST' && path === '/user/login') {
+    const body = await readJson(req);
+    const deviceId = body.DeviceId || body.deviceId || body.device_id;
+    if (typeof deviceId !== 'string' || deviceId.length < 1 || deviceId.length > 256) {
+      return sendJson(res, 400, { error: 'device_id_required' });
+    }
+    const user = getOrCreateUser(deviceId);
+    return sendJson(res, 200, {
+      User: user,
+      TermsOfServiceAccepted: false,
+      PhotonJwt: '',
+      FeatureFlags: []
+    });
+  }
+
+  const profile = path.match(/^\/user\/profile\/([^/]+)$/i);
+  if (method === 'GET' && profile) {
+    const user = accounts.get(profile[1]);
+    if (!user) return sendJson(res, 404, { error: 'profile_not_found' });
+    return sendJson(res, 200, user);
+  }
+
+  if (method === 'GET' && path === '/user/refresheconomy') {
+    return sendJson(res, 200, { Balances: [], Inventory: [], InventoryShards: [] });
+  }
+  if (method === 'GET' && (path === '/user/news' || path === '/news/getall')) {
+    return sendJson(res, 200, []);
+  }
+
+  const shared = path.match(/^\/shared\/([^/]+)\/([^/]+)$/i);
+  if (method === 'GET' && shared) {
+    return sendJson(res, 200, { ...sharedData, _SharedVersion: shared[1], SharedType: shared[2] });
+  }
+
+  if (path.startsWith('/user/') || path.startsWith('/round/') || path.startsWith('/api/v1/')) {
     return sendJson(res, 501, {
-      error: 'not_implemented',
-      message: `The ${url.pathname} endpoint needs the StumbleZyx 0.56 API contract and server logic.`
+      error: 'endpoint_not_implemented',
+      message: 'This game API is not implemented by the prototype backend.'
     });
   }
-
   return sendJson(res, 404, { error: 'not_found' });
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((error) => {
+    if (!res.headersSent) sendJson(res, error.status || 500, { error: error.status === 400 ? 'invalid_request' : 'server_error' });
+    else res.destroy();
+  });
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`StumbleZyx backend scaffold listening on ${HOST}:${PORT}`);
+  console.log(`StumbleZyx backend listening on ${HOST}:${PORT}`);
 });
 
 server.on('error', (error) => {
