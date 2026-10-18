@@ -76,6 +76,7 @@ function getOrCreateUser(deviceId) {
       Id: id,
       StumbleId: accountKey,
       DeviceId: String(deviceId).slice(0, 128),
+      ScopelyJWT: '',
       Username: `Player${String(id).slice(-6)}`,
       Country: '', Region: '', Token: '', Version: '0.56', VersionResult: '',
       Friends: [], Skins: [], SkinVariants: [], Rewards: [], Balances: [],
@@ -85,7 +86,12 @@ function getOrCreateUser(deviceId) {
       Emotes: [], Animations: [], Footsteps: [], HasBattlePass: false,
       PassTokens: 0, FreePassRewards: [], PremiumPassRewards: [],
       KidFriendlyMode: 1, Age: 0, TermsOfServiceAccepted: false,
-      FeaturesEnabled: [], BattlePass: null, SecondsSinceCreated: 0,
+      FeaturesEnabled: [],
+      BattlePass: {
+        PassID: 0, PassTokens: 0, HasPurchased: false,
+        FreePassRewards: [], PremiumPassRewards: [], SecondsToEnd: 0
+      },
+      SecondsSinceCreated: 0,
       RewardID: '', PhotonJwt: '', NativeId: '', PlatformType: 0,
       Inventory: [], InventoryShards: {}
     });
@@ -98,7 +104,18 @@ function getOrCreateUser(deviceId) {
 const sharedData = {
   CustomPartySettings: {}, FriendsListSettings: {}, RewardPacks: [],
   BattlePass: {}, BattlePasses: [], Currencies: {}, PurchasableItems: [],
-  AdSettings: {}, ShopDef: {}, MatchmakingPools: [], Levels: [], Skins_v4: [],
+  AdSettings: {
+    UseTestAds: false, UseRewardedAdLimit: false, AdRankLimit: 0,
+    RewardedDisabled: true, RewardedCount: 0,
+    AgeSettings: { AskAge: false, Countries: [] },
+    InterstitialSettings: {
+      DefaultDisableInterstitials: true,
+      DefaultIntervalSeconds: 86400,
+      CountrySettings: []
+    },
+    TestDevices: [], DisableForDevices: []
+  },
+  ShopDef: {}, MatchmakingPools: [], Levels: [], Skins_v4: [],
   Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
   RoundRewards: [], GeneralSettings: {}, InGameNotifications: {}, Versions: {},
   SupportSettings: {}, PhotonSettings: {}, UseFirebase: false, DisableAdmob: true,
@@ -124,7 +141,7 @@ async function handle(req, res) {
   if (method === 'GET' && (path === '/' || path === '/health')) {
     return sendJson(res, 200, {
       service: 'StumbleZyx backend', status: 'online', apiReadiness: 'partial',
-      implementedRoutes: ['POST /user/login', 'GET /user/config', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
+      implementedRoutes: ['POST /user/login', 'GET /user/config', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'POST /user/inventory/selection', 'GET /user/steampricesv2', 'GET /collection-events/me', 'GET /game-events/me/', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
       multiplayerReady: false,
       note: 'Prototype guest backend; data is in memory and resets on restart.'
     });
@@ -175,7 +192,21 @@ async function handle(req, res) {
   }
 
   if (method === 'GET' && path === '/user/refresheconomy') {
-    return sendJson(res, 200, { Balances: [], Inventory: [], InventoryShards: [] });
+    return sendJson(res, 200, { Balances: [], Inventory: [], InventoryShards: {} });
+  }
+
+  if (method === 'POST' && path === '/user/inventory/selection') {
+    // The prototype stores no selectable inventory; acknowledge the no-op.
+    return sendJson(res, 200, { success: true });
+  }
+  if (method === 'GET' && path === '/user/steampricesv2') {
+    return sendJson(res, 200, {});
+  }
+  if (method === 'GET' && path === '/collection-events/me') {
+    return sendJson(res, 200, { CollectionEvents: [] });
+  }
+  if (method === 'GET' && /^\/game-events\/me\/?$/i.test(path)) {
+    return sendJson(res, 200, { GameEvents: [] });
   }
   if (method === 'GET' && (path === '/user/news' || path === '/news/getall')) {
     return sendJson(res, 200, []);
