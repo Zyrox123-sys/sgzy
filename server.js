@@ -66,6 +66,14 @@ function findDeviceId(value) {
   return null;
 }
 
+function defaultSpinBalances() {
+  const now = new Date().toISOString();
+  return [
+    { Name: 'default_free_spins', Amount: 0, SecondsPerUnit: 0, MaxAmount: 0, SecondsSince: 0, LastGiven: now },
+    { Name: 'default_free_ad_spins', Amount: 0, SecondsPerUnit: 0, MaxAmount: 0, SecondsSince: 0, LastGiven: now }
+  ];
+}
+
 function getOrCreateUser(deviceId) {
   const accountKey = hashId(deviceId);
   // Stumble Guys 0.56 deserializes User.Id as Int32, not a string.
@@ -79,7 +87,7 @@ function getOrCreateUser(deviceId) {
       ScopelyJWT: '',
       Username: `Player${String(id).slice(-6)}`,
       Country: '', Region: '', Token: '', Version: '0.56', VersionResult: '',
-      Friends: [], Skins: [], SkinVariants: [], Rewards: [], Balances: [],
+      Friends: [], Skins: [], SkinVariants: [], Rewards: [], Balances: defaultSpinBalances(),
       Created: created, LastLogin: created, SkillRating: 0, Crowns: 0,
       HiddenRating: 0, Experience: 0, NewsVersion: 0,
       AvailableNewsVersion: 0, LatestNewsIdBackend: 0,
@@ -124,7 +132,7 @@ const sharedData = {
       SpinHeader: '', LuckySpinWheelPurchasableItem: '', RotationItemList: [],
       SpinVisualDropsList: [], DropChancesVisuals: {}, AdSpinCooldownSeconds: 86400,
       GlobalResetTimeSeconds: 86400, RawGlobalResetTimeSeconds: 86400,
-      GlobalResetTimeOffsetSeconds: 0, AdSpinMaxAmountPerCycle: 0, SpinMode: null
+      GlobalResetTimeOffsetSeconds: 0, AdSpinMaxAmountPerCycle: 0, SpinMode: 0
     },
     ClassicSpinWheel: {}, LuckySpinWheelPurchasableItems: [], CreatorCode: {}
   }, MatchmakingPools: [], Levels: [], Skins_v4: [],
@@ -204,7 +212,7 @@ async function handle(req, res) {
   }
 
   if (method === 'GET' && path === '/user/refresheconomy') {
-    return sendJson(res, 200, { Balances: [], Inventory: [], InventoryShards: {} });
+    return sendJson(res, 200, { Balances: defaultSpinBalances(), Inventory: [], InventoryShards: {} });
   }
 
   if (method === 'POST' && path === '/user/inventory/selection') {
