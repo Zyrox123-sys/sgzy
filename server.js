@@ -115,7 +115,19 @@ const sharedData = {
     },
     TestDevices: [], DisableForDevices: []
   },
-  ShopDef: {}, MatchmakingPools: [], Levels: [], Skins_v4: [],
+  ShopDef: {
+    Categories: [], OfferRotations_v2: [], OfferPopupMinSeconds: 0,
+    Offers_v2: [], Gachas: [],
+    LuckySpinWheel: {
+      Id: '', ShopItemHeader: '', ShopItemDescription: '', ShopItemBackgroundImage: '',
+      PopupHeader: '', PopupSubHeader: '', PopupDescription: '', PopupBackgroundImage: '',
+      SpinHeader: '', LuckySpinWheelPurchasableItem: '', RotationItemList: [],
+      SpinVisualDropsList: [], DropChancesVisuals: {}, AdSpinCooldownSeconds: 86400,
+      GlobalResetTimeSeconds: 86400, RawGlobalResetTimeSeconds: 86400,
+      GlobalResetTimeOffsetSeconds: 0, AdSpinMaxAmountPerCycle: 0, SpinMode: null
+    },
+    ClassicSpinWheel: {}, LuckySpinWheelPurchasableItems: [], CreatorCode: {}
+  }, MatchmakingPools: [], Levels: [], Skins_v4: [],
   Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
   RoundRewards: [], GeneralSettings: {}, InGameNotifications: {}, Versions: {},
   SupportSettings: {}, PhotonSettings: {}, UseFirebase: false, DisableAdmob: true,
@@ -141,7 +153,7 @@ async function handle(req, res) {
   if (method === 'GET' && (path === '/' || path === '/health')) {
     return sendJson(res, 200, {
       service: 'StumbleZyx backend', status: 'online', apiReadiness: 'partial',
-      implementedRoutes: ['POST /user/login', 'GET /user/config', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'POST /user/inventory/selection', 'GET /user/steampricesv2', 'GET /collection-events/me', 'GET /game-events/me/', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
+      implementedRoutes: ['POST /user/login', 'GET /user/config', 'GET /user/profile/:id', 'GET /user/refresheconomy', 'POST /user/inventory/selection', 'GET /user/steampricesv2', 'GET /usersettings', 'GET /collection-events/me', 'GET /game-events/me/', 'GET /user/news', 'GET /shared/:version/:type', 'GET /api/v1/ping'],
       multiplayerReady: false,
       note: 'Prototype guest backend; data is in memory and resets on restart.'
     });
@@ -200,7 +212,16 @@ async function handle(req, res) {
     return sendJson(res, 200, { success: true });
   }
   if (method === 'GET' && path === '/user/steampricesv2') {
-    return sendJson(res, 200, {});
+    // Purchaser.GetSteamPrices deserializes this response as List<SteamPurchasePrice>.
+    return sendJson(res, 200, []);
+  }
+  if (method === 'GET' && path === '/usersettings') {
+    return sendJson(res, 200, {
+      FriendIsOnlinePush: false,
+      InvitedToPartyPush: false,
+      PartyInviteToastNotification: false,
+      PartyInviteInGameToastNotification: false
+    });
   }
   if (method === 'GET' && path === '/collection-events/me') {
     return sendJson(res, 200, { CollectionEvents: [] });
