@@ -113,9 +113,9 @@ function findPhotonToken(value) {
 
 const sharedData = {
   CustomPartySettings: {
-    MaxStartingPlayers: 32, MaxStartingRounds: 3, PlayWithBotsSelected: false,
+    MaxStartingPlayers: 32, MaxStartingRounds: 3, PlayWithBotsSelected: true,
     ExcludedMapsPerRound: {},
-    RoundsLogic: [{ FromPlayers: 2, ToPlayers: 32, MaxRoundsAllowed: 3 }],
+    RoundsLogic: [{ FromPlayers: 1, ToPlayers: 32, MaxRoundsAllowed: 3 }],
     RoundsQualificationLogic: {}
   },
   FriendsListSettings: {}, RewardPacks: [], BattlePass: {}, BattlePasses: [], Currencies: {}, PurchasableItems: [],
