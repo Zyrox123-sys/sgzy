@@ -137,7 +137,7 @@ const sharedData = {
     },
     ClassicSpinWheel: {}, LuckySpinWheelPurchasableItems: [], CreatorCode: {}
   },
-  MatchmakingPools: [], Levels: [], Skins_v4: [], Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
+  MatchmakingPools: [{ ID: 0, MaxPlayers: 32, MinRating: 0, Name: 'Custom Party', WaitTime: 0, MinBotDifficulty: 0, MaxBotDifficulty: 0 }], Levels: [], Skins_v4: [], Footsteps_v2: [], Emotes_v2: [], Animations_v2: [], RoundLevels_v2: [],
   RoundRewards: [], GeneralSettings: {}, InGameNotifications: {}, Versions: {}, SupportSettings: {}, PhotonSettings: {},
   UseFirebase: false, DisableAdmob: true, DisableAds: true,
   BackendUrl: 'https://sgzy-production.up.railway.app', SharedType: '', AnalyticsSettings: {},
